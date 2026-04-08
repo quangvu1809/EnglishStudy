@@ -1294,6 +1294,13 @@ async function saveHistory(results) {
         }
     });
 
+    // Save exam questions for retry (strip passage text to save space)
+    const examSnapshot = currentExam.map(q => ({
+        id: q.id, question: q.question, options: q.options, correct: q.correct,
+        explanation: q.explanation, tip: q.tip, number: q.number, section: q.section,
+        passage: q.passage || '', passageTitle: q.passageTitle || '', passageId: q.passageId || ''
+    }));
+
     const entry = {
         date: new Date().toLocaleDateString('vi-VN', {
             day: '2-digit', month: '2-digit', year: 'numeric',
@@ -1306,6 +1313,7 @@ async function saveHistory(results) {
         total: TOTAL_QUESTIONS,
         timeUsed: results.timeUsed,
         sectionBreakdown,
+        examQuestions: examSnapshot,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
@@ -1329,12 +1337,12 @@ async function loadHistory() {
 
     listEl.innerHTML = '<p class="no-history">Đang tải lịch sử...</p>';
 
-    // Load from Firestore
+    // Load from Firestore (include doc IDs)
     if (currentUser?.uid) {
         try {
             const snapshot = await db.collection('users').doc(currentUser.uid)
                 .collection('history').orderBy('createdAt', 'desc').limit(50).get();
-            cachedHistory = snapshot.docs.map(doc => doc.data());
+            cachedHistory = snapshot.docs.map(doc => ({ _docId: doc.id, ...doc.data() }));
         } catch (e) {
             console.error('Firestore load error:', e);
         }
@@ -1348,9 +1356,10 @@ async function loadHistory() {
     listEl.innerHTML = cachedHistory.map((item, index) => {
         const score = parseFloat(item.score);
         const level = score >= 8 ? 'high' : score >= 5 ? 'medium' : 'low';
+        const hasExam = item.examQuestions && item.examQuestions.length > 0;
         return `
-            <div class="history-item" onclick="viewHistoryDetail(${index})">
-                <div class="history-item-left">
+            <div class="history-item">
+                <div class="history-item-left" onclick="viewHistoryDetail(${index})">
                     <span class="history-rank">#${index + 1}</span>
                     <div class="history-info">
                         <span class="history-date">${item.date}</span>
@@ -1359,11 +1368,52 @@ async function loadHistory() {
                 </div>
                 <div class="history-item-right">
                     <span class="history-score ${level}">${item.score}</span>
-                    <i class="fas fa-chevron-right history-arrow"></i>
+                    ${hasExam ? `<button class="btn-history-retry" onclick="event.stopPropagation(); retryFromHistory(${index})" title="Làm lại đề này"><i class="fas fa-redo"></i></button>` : ''}
+                    ${isAdmin() ? `<button class="btn-history-delete" onclick="event.stopPropagation(); deleteHistoryEntry(${index})" title="Xóa"><i class="fas fa-trash"></i></button>` : ''}
+                    <i class="fas fa-chevron-right history-arrow" onclick="viewHistoryDetail(${index})"></i>
                 </div>
             </div>
         `;
     }).join('');
+}
+
+function retryFromHistory(index) {
+    const item = cachedHistory[index];
+    if (!item || !item.examQuestions || item.examQuestions.length === 0) {
+        showToast('Đề thi này không có dữ liệu câu hỏi để làm lại.', 'error');
+        return;
+    }
+
+    // Load exam questions from history
+    examFinished = false;
+    userAnswers = {};
+    currentExam = item.examQuestions;
+    timeRemaining = EXAM_DURATION;
+
+    renderExam();
+    showPage('exam-page');
+    startTimer();
+    examStartTime = Date.now();
+    showToast('Đang làm lại đề thi #' + (index + 1), 'info');
+}
+
+async function deleteHistoryEntry(index) {
+    if (!isAdmin()) { showToast('Chỉ admin mới có quyền xóa.', 'error'); return; }
+
+    const item = cachedHistory[index];
+    if (!item) return;
+    if (!confirm(`Xóa lịch sử bài thi #${index + 1} (${item.date}, điểm: ${item.score})?`)) return;
+
+    try {
+        if (currentUser?.uid && item._docId) {
+            await db.collection('users').doc(currentUser.uid).collection('history').doc(item._docId).delete();
+        }
+        cachedHistory.splice(index, 1);
+        await loadHistory();
+        showToast('Đã xóa lịch sử bài thi.', 'success');
+    } catch (e) {
+        showToast('Lỗi xóa: ' + e.message, 'error');
+    }
 }
 
 function viewHistoryDetail(index) {

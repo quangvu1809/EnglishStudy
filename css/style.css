@@ -1745,6 +1745,53 @@ body {
     background: var(--warning-bg);
 }
 
+/* History Action Buttons */
+.history-item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-history-retry {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-bg);
+    color: var(--primary);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.btn-history-retry:hover {
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-history-delete {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.btn-history-delete:hover {
+    background: var(--danger);
+    color: #fff;
+}
+
 /* Auth Loading */
 .auth-loading-overlay {
     position: fixed;

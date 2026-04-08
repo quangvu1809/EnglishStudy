@@ -451,6 +451,14 @@
         </div>
     </div>
 
+    <!-- Auth Loading Overlay -->
+    <div class="auth-loading-overlay" id="auth-loading" style="display:none;">
+        <div class="auth-loading-content">
+            <div class="loading-spinner"></div>
+            <p>Đang xử lý...</p>
+        </div>
+    </div>
+
     <!-- Admin Panel Modal -->
     <div class="modal-overlay" id="admin-modal">
         <div class="modal-content modal-large">
@@ -465,6 +473,20 @@
             </div>
             <div class="modal-actions">
                 <button class="btn-confirm" onclick="closeAdminPanel()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin User History Modal -->
+    <div class="modal-overlay" id="admin-history-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-close" onclick="closeAdminHistory()"><i class="fas fa-times"></i></div>
+            <h3><i class="fas fa-history"></i> Lịch sử làm bài: <span id="admin-history-username"></span></h3>
+            <div id="admin-history-list" class="admin-history-list">
+                <p>Đang tải...</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-confirm" onclick="closeAdminHistory()">Đóng</button>
             </div>
         </div>
     </div>

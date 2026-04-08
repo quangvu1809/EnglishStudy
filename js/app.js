@@ -230,10 +230,68 @@ function renderAdminUsers(users) {
                     <span class="user-username">@${u.username} | ${u.email || ''}</span>
                 </div>
                 <span class="user-date">${created}</span>
-                ${isAdminUser ? '' : `<button class="btn-delete-user" onclick="deleteUser('${u.id}', '${u.username}')"><i class="fas fa-trash"></i> Xóa</button>`}
+                <div class="admin-user-actions">
+                    <button class="btn-view-history" onclick="viewUserHistory('${u.id}', '${u.fullname || u.username}')"><i class="fas fa-history"></i></button>
+                    ${isAdminUser ? '' : `<button class="btn-delete-user" onclick="deleteUser('${u.id}', '${u.username}')"><i class="fas fa-trash"></i></button>`}
+                </div>
             </div>
         `;
     }).join('');
+}
+
+async function viewUserHistory(uid, displayName) {
+    document.getElementById('admin-history-modal').classList.add('show');
+    document.getElementById('admin-history-username').textContent = displayName;
+    const listEl = document.getElementById('admin-history-list');
+    listEl.innerHTML = '<p>Đang tải...</p>';
+
+    try {
+        const snapshot = await db.collection('users').doc(uid)
+            .collection('history').orderBy('createdAt', 'desc').limit(50).get();
+        const history = snapshot.docs.map(doc => doc.data());
+
+        if (history.length === 0) {
+            listEl.innerHTML = '<p class="no-history">Chưa có lịch sử làm bài</p>';
+            return;
+        }
+
+        listEl.innerHTML = history.map((item, idx) => {
+            const score = parseFloat(item.score);
+            const level = score >= 8 ? 'high' : score >= 5 ? 'medium' : 'low';
+
+            let sectionHTML = '';
+            if (item.sectionBreakdown) {
+                sectionHTML = Object.keys(item.sectionBreakdown).map(s => {
+                    const d = item.sectionBreakdown[s];
+                    const pct = Math.round((d.correct / d.total) * 100);
+                    return `<span class="admin-section-tag">${d.label}: ${d.correct}/${d.total} (${pct}%)</span>`;
+                }).join('');
+            }
+
+            return `
+                <div class="admin-history-item">
+                    <div class="admin-history-header">
+                        <span class="admin-history-rank">#${idx + 1}</span>
+                        <span class="admin-history-date"><i class="fas fa-calendar"></i> ${item.date || ''}</span>
+                        <span class="admin-history-score ${level}">${item.score}/10</span>
+                    </div>
+                    <div class="admin-history-stats">
+                        <span class="stat-ok"><i class="fas fa-check"></i> ${item.correct} đúng</span>
+                        <span class="stat-fail"><i class="fas fa-times"></i> ${item.wrong} sai</span>
+                        <span class="stat-skip"><i class="fas fa-minus"></i> ${item.unanswered} bỏ</span>
+                        <span class="stat-time"><i class="fas fa-clock"></i> ${item.timeUsed} phút</span>
+                    </div>
+                    ${sectionHTML ? `<div class="admin-history-sections">${sectionHTML}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        listEl.innerHTML = '<p style="color:var(--danger)">Lỗi: ' + e.message + '</p>';
+    }
+}
+
+function closeAdminHistory() {
+    document.getElementById('admin-history-modal').classList.remove('show');
 }
 
 function filterAdminUsers() {
@@ -264,6 +322,11 @@ async function deleteUser(uid, username) {
 }
 
 // ─── FIREBASE AUTHENTICATION ──────────────────
+function showAuthLoading(show) {
+    const overlay = document.getElementById('auth-loading');
+    if (overlay) overlay.style.display = show ? 'flex' : 'none';
+}
+
 async function handleRegister() {
     const fullname = document.getElementById('register-fullname').value.trim();
     const username = document.getElementById('register-username').value.trim().toLowerCase();
@@ -279,23 +342,24 @@ async function handleRegister() {
     if (!password || password.length < 6) { errorEl.textContent = 'Mật khẩu phải có ít nhất 6 ký tự'; return; }
     if (password !== confirm) { errorEl.textContent = 'Mật khẩu xác nhận không khớp'; return; }
 
+    showAuthLoading(true);
     try {
-        // Use username as email: username@englishstudy.app
         const email = username + '@englishstudy.app';
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         await cred.user.updateProfile({ displayName: fullname });
 
-        // Save user profile to Firestore
         await db.collection('users').doc(cred.user.uid).set({
             username, fullname, email,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
         currentUser = { uid: cred.user.uid, username, fullname, email };
+        showAuthLoading(false);
         showToast(`Đăng ký thành công! Chào mừng ${fullname}`, 'success');
         showPage('landing-page');
         initLandingPage();
     } catch (e) {
+        showAuthLoading(false);
         if (e.code === 'auth/email-already-in-use') {
             errorEl.textContent = 'Tên đăng nhập đã tồn tại';
         } else if (e.code === 'auth/weak-password') {
@@ -316,11 +380,11 @@ async function handleLogin() {
     if (!username) { errorEl.textContent = 'Vui lòng nhập tên đăng nhập'; return; }
     if (!password) { errorEl.textContent = 'Vui lòng nhập mật khẩu'; return; }
 
+    showAuthLoading(true);
     try {
         const email = username + '@englishstudy.app';
         const cred = await auth.signInWithEmailAndPassword(email, password);
 
-        // Load profile from Firestore
         const doc = await db.collection('users').doc(cred.user.uid).get();
         const data = doc.exists ? doc.data() : {};
 
@@ -331,10 +395,12 @@ async function handleLogin() {
             email
         };
 
+        showAuthLoading(false);
         showToast(`Chào mừng ${currentUser.fullname} quay lại!`, 'success');
         showPage('landing-page');
         initLandingPage();
     } catch (e) {
+        showAuthLoading(false);
         if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
             errorEl.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
         } else {

@@ -1745,6 +1745,128 @@ body {
     background: var(--warning-bg);
 }
 
+/* Auth Loading */
+.auth-loading-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-loading-content {
+    background: #fff;
+    padding: 30px 40px;
+    border-radius: var(--radius-lg);
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+}
+
+.auth-loading-content p {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+/* Admin User Actions */
+.admin-user-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.btn-view-history {
+    padding: 6px 10px;
+    background: var(--info);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.btn-view-history:hover {
+    background: #2563EB;
+}
+
+/* Admin History */
+.admin-history-list {
+    max-height: 450px;
+    overflow-y: auto;
+}
+
+.admin-history-item {
+    padding: 12px;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.admin-history-item:last-child {
+    border-bottom: none;
+}
+
+.admin-history-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.admin-history-rank {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray-400);
+}
+
+.admin-history-date {
+    font-size: 12px;
+    color: var(--gray-500);
+    flex: 1;
+}
+
+.admin-history-score {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.admin-history-score.high { background: var(--success-bg); color: #065F46; }
+.admin-history-score.medium { background: var(--warning-bg); color: #92400E; }
+.admin-history-score.low { background: var(--danger-bg); color: #991B1B; }
+
+.admin-history-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.admin-history-stats .stat-ok { color: var(--success); }
+.admin-history-stats .stat-fail { color: var(--danger); }
+.admin-history-stats .stat-skip { color: var(--gray-400); }
+.admin-history-stats .stat-time { color: var(--info); }
+
+.admin-history-sections {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.admin-section-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: var(--gray-100);
+    color: var(--gray-600);
+    border-radius: 10px;
+}
+
 /* API Key Guide */
 .api-key-guide {
     margin-bottom: 14px;

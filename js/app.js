@@ -388,8 +388,14 @@ async function handleLogin() {
         const email = username + '@englishstudy.app';
         const cred = await auth.signInWithEmailAndPassword(email, password);
 
-        const doc = await db.collection('users').doc(cred.user.uid).get();
-        const data = doc.exists ? doc.data() : {};
+        // Try Firestore, fallback to Auth profile if offline
+        let data = {};
+        try {
+            const doc = await db.collection('users').doc(cred.user.uid).get();
+            data = doc.exists ? doc.data() : {};
+        } catch (fsErr) {
+            console.warn('Firestore offline, using Auth profile:', fsErr.message);
+        }
 
         currentUser = {
             uid: cred.user.uid,
@@ -440,8 +446,13 @@ function checkAutoLogin() {
 
         if (user) {
             try {
-                const doc = await db.collection('users').doc(user.uid).get();
-                const data = doc.exists ? doc.data() : {};
+                let data = {};
+                try {
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    data = doc.exists ? doc.data() : {};
+                } catch (fsErr) {
+                    console.warn('Firestore offline, using Auth profile');
+                }
                 currentUser = {
                     uid: user.uid,
                     username: data.username || user.email?.split('@')[0] || '',

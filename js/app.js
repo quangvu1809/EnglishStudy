@@ -420,6 +420,18 @@ function getAPIKey() {
     return localStorage.getItem('openai_api_key') || '';
 }
 
+function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+}
+
 function toggleKeyVisibility() {
     const input = document.getElementById('api-key-input');
     const icon = document.getElementById('key-eye-icon');

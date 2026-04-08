@@ -1557,6 +1557,34 @@ body {
     white-space: nowrap;
 }
 
+/* Password Toggle */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding-right: 40px;
+}
+
+.btn-eye {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 16px;
+    padding: 4px;
+    transition: color 0.2s;
+}
+
+.btn-eye:hover {
+    color: var(--gray-700);
+}
+
 /* User Actions */
 .user-actions {
     display: flex;

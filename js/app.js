@@ -168,7 +168,10 @@ const ADMIN_USERNAME = 'admin';
 let allUsersCache = [];
 
 function isAdmin() {
-    return currentUser?.username === ADMIN_USERNAME;
+    if (!currentUser) return false;
+    // Check username or email prefix
+    return currentUser.username === ADMIN_USERNAME ||
+           currentUser.email === ADMIN_USERNAME + '@englishstudy.app';
 }
 
 function showAdminButton() {

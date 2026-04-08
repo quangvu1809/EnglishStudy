@@ -343,6 +343,7 @@ async function handleRegister() {
     if (password !== confirm) { errorEl.textContent = 'Mật khẩu xác nhận không khớp'; return; }
 
     showAuthLoading(true);
+    authHandledManually = true;
     try {
         const email = username + '@englishstudy.app';
         const cred = await auth.createUserWithEmailAndPassword(email, password);
@@ -360,6 +361,7 @@ async function handleRegister() {
         initLandingPage();
     } catch (e) {
         showAuthLoading(false);
+        authHandledManually = false;
         if (e.code === 'auth/email-already-in-use') {
             errorEl.textContent = 'Tên đăng nhập đã tồn tại';
         } else if (e.code === 'auth/weak-password') {
@@ -381,6 +383,7 @@ async function handleLogin() {
     if (!password) { errorEl.textContent = 'Vui lòng nhập mật khẩu'; return; }
 
     showAuthLoading(true);
+    authHandledManually = true;
     try {
         const email = username + '@englishstudy.app';
         const cred = await auth.signInWithEmailAndPassword(email, password);
@@ -401,6 +404,7 @@ async function handleLogin() {
         initLandingPage();
     } catch (e) {
         showAuthLoading(false);
+        authHandledManually = false;
         if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
             errorEl.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
         } else {
@@ -421,9 +425,19 @@ async function handleLogout() {
     showToast('Đã đăng xuất', 'info');
 }
 
+let authHandledManually = false;
+
 function checkAutoLogin() {
-    // Listen for Firebase auth state
     auth.onAuthStateChanged(async (user) => {
+        // Always hide loading
+        showAuthLoading(false);
+
+        // Skip if login/register already handled it
+        if (authHandledManually) {
+            authHandledManually = false;
+            return;
+        }
+
         if (user) {
             try {
                 const doc = await db.collection('users').doc(user.uid).get();

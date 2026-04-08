@@ -157,8 +157,106 @@ function initLandingPage() {
     loadHistory();
     loadAPIKey();
     updateBankCount();
+    showAdminButton();
     if (currentUser) {
         document.getElementById('user-display-name').textContent = currentUser.fullname;
+    }
+}
+
+// ─── ADMIN ────────────────────────────────────
+const ADMIN_USERNAME = 'admin';
+let allUsersCache = [];
+
+function isAdmin() {
+    return currentUser?.username === ADMIN_USERNAME;
+}
+
+function showAdminButton() {
+    const btn = document.getElementById('btn-admin');
+    if (btn) btn.style.display = isAdmin() ? '' : 'none';
+}
+
+async function openAdminPanel() {
+    if (!isAdmin()) return;
+    document.getElementById('admin-modal').classList.add('show');
+    await loadAdminUsers();
+}
+
+function closeAdminPanel() {
+    document.getElementById('admin-modal').classList.remove('show');
+}
+
+async function loadAdminUsers() {
+    const listEl = document.getElementById('admin-user-list');
+    const statsEl = document.getElementById('admin-stats');
+    listEl.innerHTML = '<p>Đang tải...</p>';
+
+    try {
+        const snapshot = await db.collection('users').orderBy('createdAt', 'desc').get();
+        allUsersCache = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        statsEl.innerHTML = `
+            <div class="admin-stat-card total">
+                <span class="stat-num">${allUsersCache.length}</span>
+                <span class="stat-label">Tổng tài khoản</span>
+            </div>
+        `;
+
+        renderAdminUsers(allUsersCache);
+    } catch (e) {
+        listEl.innerHTML = '<p style="color:var(--danger)">Lỗi tải danh sách: ' + e.message + '</p>';
+    }
+}
+
+function renderAdminUsers(users) {
+    const listEl = document.getElementById('admin-user-list');
+    if (users.length === 0) {
+        listEl.innerHTML = '<p>Không tìm thấy tài khoản nào.</p>';
+        return;
+    }
+
+    listEl.innerHTML = users.map((u, i) => {
+        const isAdminUser = u.username === ADMIN_USERNAME;
+        const created = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('vi-VN') : '';
+        return `
+            <div class="admin-user-row ${isAdminUser ? 'is-admin' : ''}">
+                <span class="user-idx">${i + 1}</span>
+                <div class="user-avatar-sm"><i class="fas fa-${isAdminUser ? 'user-shield' : 'user'}"></i></div>
+                <div class="user-info-col">
+                    <span class="user-fullname">${u.fullname || u.username} ${isAdminUser ? '(Admin)' : ''}</span>
+                    <span class="user-username">@${u.username} | ${u.email || ''}</span>
+                </div>
+                <span class="user-date">${created}</span>
+                ${isAdminUser ? '' : `<button class="btn-delete-user" onclick="deleteUser('${u.id}', '${u.username}')"><i class="fas fa-trash"></i> Xóa</button>`}
+            </div>
+        `;
+    }).join('');
+}
+
+function filterAdminUsers() {
+    const q = document.getElementById('admin-search-input').value.toLowerCase();
+    const filtered = allUsersCache.filter(u =>
+        (u.fullname || '').toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q)
+    );
+    renderAdminUsers(filtered);
+}
+
+async function deleteUser(uid, username) {
+    if (!confirm(`Xác nhận xóa tài khoản @${username}?\n\nLưu ý: Thao tác này sẽ xóa dữ liệu Firestore. Tài khoản Firebase Auth cần xóa thủ công trong Firebase Console.`)) return;
+
+    try {
+        // Delete history subcollection
+        const historySnap = await db.collection('users').doc(uid).collection('history').get();
+        const batch = db.batch();
+        historySnap.docs.forEach(doc => batch.delete(doc.ref));
+        batch.delete(db.collection('users').doc(uid));
+        await batch.commit();
+
+        showToast(`Đã xóa dữ liệu tài khoản @${username}`, 'success');
+        await loadAdminUsers();
+    } catch (e) {
+        showToast('Lỗi xóa: ' + e.message, 'error');
     }
 }
 

@@ -90,9 +90,14 @@
                     <span class="user-name" id="user-display-name">Học sinh</span>
                 </div>
             </div>
-            <button class="btn-logout" onclick="handleLogout()">
-                <i class="fas fa-sign-out-alt"></i> Đăng xuất
-            </button>
+            <div class="user-actions">
+                <button class="btn-admin" id="btn-admin" onclick="openAdminPanel()" style="display:none;">
+                    <i class="fas fa-user-shield"></i> Admin
+                </button>
+                <button class="btn-logout" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
         </div>
 
         <div class="landing-container">
@@ -433,6 +438,24 @@
             </div>
             <div class="modal-actions">
                 <button class="btn-confirm" onclick="closeHistoryDetail()">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div class="modal-overlay" id="admin-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-close" onclick="closeAdminPanel()"><i class="fas fa-times"></i></div>
+            <h3><i class="fas fa-user-shield"></i> Quản lý tài khoản</h3>
+            <div class="admin-stats" id="admin-stats"></div>
+            <div class="admin-search">
+                <input type="text" id="admin-search-input" placeholder="Tìm kiếm theo tên..." oninput="filterAdminUsers()">
+            </div>
+            <div class="admin-user-list" id="admin-user-list">
+                <p>Đang tải...</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-confirm" onclick="closeAdminPanel()">Đóng</button>
             </div>
         </div>
     </div>

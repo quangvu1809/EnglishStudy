@@ -9,14 +9,13 @@ let timerInterval = null;
 let timeRemaining = 60 * 60; // 60 minutes in seconds
 let examStartTime = null;
 let examFinished = false;
-let currentUser = null; // { username, fullname }
+let currentUser = null; // { uid, username, fullname, email }
 
 // ─── CONSTANTS ─────────────────────────────────
 const EXAM_DURATION = 60 * 60; // 60 minutes
 const TOTAL_QUESTIONS = 40;
 const SAVED_BANK_KEY = 'saved_question_bank';
-const USERS_KEY = 'registered_users';
-const CURRENT_USER_KEY = 'current_user';
+// Auth handled by Firebase
 const SECTION_CONFIG = {
     pronunciation: { count: 2, label: 'Pronunciation - Phát âm', badge: 'badge-phonetics', navId: 'nav-phonetics', icon: 'fa-volume-up' },
     stress:        { count: 2, label: 'Word Stress - Trọng âm', badge: 'badge-phonetics', navId: 'nav-phonetics', icon: 'fa-music' },
@@ -163,28 +162,8 @@ function initLandingPage() {
     }
 }
 
-// ─── AUTHENTICATION ────────────────────────────
-function getUsers() {
-    try {
-        return JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-    } catch { return []; }
-}
-
-function saveUsers(users) {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash |= 0;
-    }
-    return 'h' + Math.abs(hash).toString(36);
-}
-
-function handleRegister() {
+// ─── FIREBASE AUTHENTICATION ──────────────────
+async function handleRegister() {
     const fullname = document.getElementById('register-fullname').value.trim();
     const username = document.getElementById('register-username').value.trim().toLowerCase();
     const password = document.getElementById('register-password').value;
@@ -195,29 +174,38 @@ function handleRegister() {
 
     if (!fullname) { errorEl.textContent = 'Vui lòng nhập họ và tên'; return; }
     if (!username || username.length < 3) { errorEl.textContent = 'Tên đăng nhập phải có ít nhất 3 ký tự'; return; }
-    if (/[^a-z0-9_]/.test(username)) { errorEl.textContent = 'Tên đăng nhập chỉ gồm chữ thường, số và dấu _'; return; }
-    if (!password || password.length < 4) { errorEl.textContent = 'Mật khẩu phải có ít nhất 4 ký tự'; return; }
+    if (/[^a-z0-9_.]/.test(username)) { errorEl.textContent = 'Tên đăng nhập chỉ gồm chữ thường, số, dấu _ và .'; return; }
+    if (!password || password.length < 6) { errorEl.textContent = 'Mật khẩu phải có ít nhất 6 ký tự'; return; }
     if (password !== confirm) { errorEl.textContent = 'Mật khẩu xác nhận không khớp'; return; }
 
-    const users = getUsers();
-    if (users.find(u => u.username === username)) {
-        errorEl.textContent = 'Tên đăng nhập đã tồn tại';
-        return;
+    try {
+        // Use username as email: username@englishstudy.app
+        const email = username + '@englishstudy.app';
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await cred.user.updateProfile({ displayName: fullname });
+
+        // Save user profile to Firestore
+        await db.collection('users').doc(cred.user.uid).set({
+            username, fullname, email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        currentUser = { uid: cred.user.uid, username, fullname, email };
+        showToast(`Đăng ký thành công! Chào mừng ${fullname}`, 'success');
+        showPage('landing-page');
+        initLandingPage();
+    } catch (e) {
+        if (e.code === 'auth/email-already-in-use') {
+            errorEl.textContent = 'Tên đăng nhập đã tồn tại';
+        } else if (e.code === 'auth/weak-password') {
+            errorEl.textContent = 'Mật khẩu phải có ít nhất 6 ký tự';
+        } else {
+            errorEl.textContent = 'Lỗi đăng ký: ' + e.message;
+        }
     }
-
-    users.push({ username, fullname, password: simpleHash(password), createdAt: new Date().toISOString() });
-    saveUsers(users);
-
-    // Auto login after register
-    currentUser = { username, fullname };
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
-
-    showToast(`Đăng ký thành công! Chào mừng ${fullname}`, 'success');
-    showPage('landing-page');
-    initLandingPage();
 }
 
-function handleLogin() {
+async function handleLogin() {
     const username = document.getElementById('login-username').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
     const errorEl = document.getElementById('login-error');
@@ -227,26 +215,36 @@ function handleLogin() {
     if (!username) { errorEl.textContent = 'Vui lòng nhập tên đăng nhập'; return; }
     if (!password) { errorEl.textContent = 'Vui lòng nhập mật khẩu'; return; }
 
-    const users = getUsers();
-    const user = users.find(u => u.username === username && u.password === simpleHash(password));
+    try {
+        const email = username + '@englishstudy.app';
+        const cred = await auth.signInWithEmailAndPassword(email, password);
 
-    if (!user) {
-        errorEl.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
-        return;
+        // Load profile from Firestore
+        const doc = await db.collection('users').doc(cred.user.uid).get();
+        const data = doc.exists ? doc.data() : {};
+
+        currentUser = {
+            uid: cred.user.uid,
+            username: data.username || username,
+            fullname: data.fullname || cred.user.displayName || username,
+            email
+        };
+
+        showToast(`Chào mừng ${currentUser.fullname} quay lại!`, 'success');
+        showPage('landing-page');
+        initLandingPage();
+    } catch (e) {
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+            errorEl.textContent = 'Tên đăng nhập hoặc mật khẩu không đúng';
+        } else {
+            errorEl.textContent = 'Lỗi đăng nhập: ' + e.message;
+        }
     }
-
-    currentUser = { username: user.username, fullname: user.fullname };
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
-
-    showToast(`Chào mừng ${user.fullname} quay lại!`, 'success');
-    showPage('landing-page');
-    initLandingPage();
 }
 
-function handleLogout() {
+async function handleLogout() {
+    try { await auth.signOut(); } catch (e) { console.error(e); }
     currentUser = null;
-    localStorage.removeItem(CURRENT_USER_KEY);
-    // Clear form fields
     const fields = ['login-username', 'login-password', 'register-fullname', 'register-username', 'register-password', 'register-confirm'];
     fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     document.getElementById('login-error').textContent = '';
@@ -257,21 +255,29 @@ function handleLogout() {
 }
 
 function checkAutoLogin() {
-    try {
-        const saved = localStorage.getItem(CURRENT_USER_KEY);
-        if (saved) {
-            currentUser = JSON.parse(saved);
-            // Verify user still exists
-            const users = getUsers();
-            if (users.find(u => u.username === currentUser.username)) {
+    // Listen for Firebase auth state
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            try {
+                const doc = await db.collection('users').doc(user.uid).get();
+                const data = doc.exists ? doc.data() : {};
+                currentUser = {
+                    uid: user.uid,
+                    username: data.username || user.email?.split('@')[0] || '',
+                    fullname: data.fullname || user.displayName || '',
+                    email: user.email
+                };
                 showPage('landing-page');
                 initLandingPage();
-                return;
+            } catch (e) {
+                console.error('Auto login error:', e);
+                showPage('auth-page');
             }
+        } else {
+            currentUser = null;
+            showPage('auth-page');
         }
-    } catch {}
-    currentUser = null;
-    showPage('auth-page');
+    });
 }
 
 function showLoginForm() {
@@ -1068,15 +1074,10 @@ function truncateText(text, maxLength) {
 }
 
 // ─── HISTORY ───────────────────────────────────
-function getUserHistoryKey() {
-    return currentUser ? `user_history_${currentUser.username}` : 'exam_history';
-}
+// ─── HISTORY (Firestore + localStorage fallback) ──
+let cachedHistory = [];
 
-function saveHistory(results) {
-    const key = getUserHistoryKey();
-    const history = JSON.parse(localStorage.getItem(key) || '[]');
-
-    // Build section breakdown for detail view
+async function saveHistory(results) {
     const sectionBreakdown = {};
     Object.keys(results.sectionResults).forEach(section => {
         const data = results.sectionResults[section];
@@ -1089,8 +1090,7 @@ function saveHistory(results) {
         }
     });
 
-    history.unshift({
-        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    const entry = {
         date: new Date().toLocaleDateString('vi-VN', {
             day: '2-digit', month: '2-digit', year: 'numeric',
             hour: '2-digit', minute: '2-digit'
@@ -1101,26 +1101,47 @@ function saveHistory(results) {
         unanswered: results.unanswered,
         total: TOTAL_QUESTIONS,
         timeUsed: results.timeUsed,
-        sectionBreakdown
-    });
+        sectionBreakdown,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
 
-    // Keep last 50 entries per user
-    if (history.length > 50) history.length = 50;
-    localStorage.setItem(key, JSON.stringify(history));
+    // Save to Firestore
+    if (currentUser?.uid) {
+        try {
+            await db.collection('users').doc(currentUser.uid).collection('history').add(entry);
+        } catch (e) {
+            console.error('Firestore save error:', e);
+        }
+    }
+
+    // Also save to localStorage as cache
+    cachedHistory.unshift(entry);
+    if (cachedHistory.length > 50) cachedHistory.length = 50;
 }
 
-function loadHistory() {
-    const key = getUserHistoryKey();
-    const history = JSON.parse(localStorage.getItem(key) || '[]');
+async function loadHistory() {
     const listEl = document.getElementById('history-list');
     if (!listEl) return;
 
-    if (history.length === 0) {
+    listEl.innerHTML = '<p class="no-history">Đang tải lịch sử...</p>';
+
+    // Load from Firestore
+    if (currentUser?.uid) {
+        try {
+            const snapshot = await db.collection('users').doc(currentUser.uid)
+                .collection('history').orderBy('createdAt', 'desc').limit(50).get();
+            cachedHistory = snapshot.docs.map(doc => doc.data());
+        } catch (e) {
+            console.error('Firestore load error:', e);
+        }
+    }
+
+    if (cachedHistory.length === 0) {
         listEl.innerHTML = '<p class="no-history">Chưa có lịch sử làm bài</p>';
         return;
     }
 
-    listEl.innerHTML = history.map((item, index) => {
+    listEl.innerHTML = cachedHistory.map((item, index) => {
         const score = parseFloat(item.score);
         const level = score >= 8 ? 'high' : score >= 5 ? 'medium' : 'low';
         return `
@@ -1142,9 +1163,7 @@ function loadHistory() {
 }
 
 function viewHistoryDetail(index) {
-    const key = getUserHistoryKey();
-    const history = JSON.parse(localStorage.getItem(key) || '[]');
-    const item = history[index];
+    const item = cachedHistory[index];
     if (!item) return;
 
     const score = parseFloat(item.score);

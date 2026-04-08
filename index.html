@@ -56,7 +56,7 @@
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-lock"></i> Mật khẩu</label>
-                        <input type="password" id="register-password" placeholder="Nhập mật khẩu (tối thiểu 4 ký tự)" autocomplete="new-password">
+                        <input type="password" id="register-password" placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)" autocomplete="new-password">
                     </div>
                     <div class="form-group">
                         <label><i class="fas fa-lock"></i> Xác nhận mật khẩu</label>
@@ -444,6 +444,23 @@
         <div class="loading-subtext">Vui lòng đợi trong giây lát</div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCsQBzwfGgxu3bMG_2wFSSrz-linYwQqQ8",
+            authDomain: "englishstudy-77194.firebaseapp.com",
+            projectId: "englishstudy-77194",
+            storageBucket: "englishstudy-77194.firebasestorage.app",
+            messagingSenderId: "557845865487",
+            appId: "1:557845865487:web:f168ea43b6855014d3af7a",
+            measurementId: "G-ZXK4Z6PHL7"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
